@@ -153,20 +153,41 @@ export default {
             .sort((a, b) => a[0] - b[0])
             .map(a => a[1]),
         /**
+         * Generates a random number between x and y.
+         */
+        randomNumber: (min, max) => Math.floor(Math.random() * (Math.floor(max) - Math.ceil(min) + 1)) + min,
+        /**
+         * Creates an array of random numbers that represent values in an index.
+         * Each value in the array will have a difference of at least 2.
+         */
+        getSpliceIndexes (count, max, arr = []) {
+            const { randomNumber } = this
+            while (arr.length < count) {
+                const num = randomNumber(0, max)
+                const found = arr.sort().filter(n => {
+                    const x = [ num, n ].sort()
+                    return (x[1] - x[0] <= 1)
+                })
+                if (!found.length) {
+                    arr.push(num)
+                }
+            }
+            return arr.sort()
+        },
+        /**
          * Shuffles the roster, joins non-aces with aces into multiple teams.
          */
         makeTeams () {
             this.teams = []
-            const { teamsCount: { total, float }, shuffle, normal } = this
+            const { teamsCount: { total, float }, shuffle, normal, getSpliceIndexes } = this
             const ace = shuffle(this.ace)
             const roster = shuffle(normal)
-            // Inserts "aces" into the roster by splicing them into the beginning of the array
-            // starting at zero, and every other index after that.
-            // Ex: 0, 2, 4, 6...
+            // Inserts "aces" into the roster by splicing them into random spots into the roster array
+            // at least two indexes a part to avoid stacking.
             if (ace.length) {
+                let spliceIndex = getSpliceIndexes(ace.length, roster.length, [])
                 for (let i = 0; i < ace.length; i++) {
-                    let j = (i * 2)
-                    roster.splice(j, 0, ace[i])
+                    roster.splice(spliceIndex[i], 0, ace[i])
                 }
             }
             // Add even/odd pairs from the roster array index into teams.
