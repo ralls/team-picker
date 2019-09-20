@@ -1,26 +1,16 @@
 <template>
     <div id="app" class="grid">
-        <div class="roster">
-            <div class="roster__content">
-                <section>
-                    <textarea id="input" v-model="input" placeholder="Add players to build your roster"></textarea>
-                </section>
-                <section v-if="roster.length">
-                    <h3>Roster</h3>
-                    <template v-for="(r, k) in roster">
-                        <span :key="k + 'r'" class="badge" @click="toggleAce(r.name)">
-                            <i :class="[ 'fad', 'fa-fire-alt', r.ace ? 'fad--ace' : null ].filter(Boolean)"></i>
-                            {{ r.name }}
-                        </span>
-                    </template>
-                </section>
+        <div class="user-input">
+            <div class="user-input__content">
+                <textarea v-show="!showTextRoster" id="input" v-model="input" placeholder="Add players to build your roster"></textarea>
+                <textarea v-show="showTextRoster" :value="teamNames.join('\n')"></textarea>
             </div>
-            <div class="roster__actions">
+            <div class="user-input__actions">
                 <section>
-                    <button class="button" @click="makeTeams">
+                    <button class="button button--primary" @click="makeTeams">
                         <span v-if="!teams.length">
                             Build
-                            <i class="fas fa-plus-circle"></i>
+                            <i class="fas fa-long-arrow-right"></i>
                         </span>
                         <span v-else>
                             Shuffle
@@ -30,17 +20,33 @@
                 </section>
             </div>
         </div>
-        <div class="teams">
-            <div v-if="teams.length" class="teams__header">
-                Teams: {{ teamsCount.total }}
+        <div class="roster">
+            <div class="roster__content">
+                <h3>Roster</h3>
+                <section v-if="roster.length">
+                    <template v-for="(r, k) in roster">
+                        <span :key="k + 'r'" class="badge" @click="toggleAce(r.name)">
+                            <i :class="[ 'fad', 'fa-fire-alt', r.ace ? 'fad--ace' : null ].filter(Boolean)"></i>
+                            {{ r.name }}
+                        </span>
+                    </template>
+                </section>
+            </div>
+        </div>
+        <div class="teams__outer">
+            <h3>Teams</h3>
+            <div v-if="teams.length" class="teams__header" @click="showTextRoster = !showTextRoster">
+                {{ teamsCount.total }} Team{{ teamsCount.total === 1 ? '' : 's' }}
                 <span v-if="sub">({{ sub.name }} sub)</span>
             </div>
-            <div v-else>
-                <h3>Add players to the roster, then build</h3>
+            <div v-if="teams.length" class="teams">
+                <template v-for="(team, key) in teams">
+                    <Team :key="key" :team="team" :number="key + 1"></Team>
+                </template>
             </div>
-            <template v-for="(team, key) in teams">
-                <Team :key="key" :team="team" :number="key + 1"></Team>
-            </template>
+            <div v-else class="teams">
+                Add players to the roster, then build
+            </div>
         </div>
     </div>
 </template>
@@ -54,7 +60,8 @@ export default {
         return {
             input: '',
             teams: [],
-            sub: ''
+            sub: '',
+            showTextRoster: false
         }
     },
     computed: {
@@ -95,6 +102,11 @@ export default {
                 total: Math.floor(count / 2),
                 float: count % 2
             }
+        },
+        teamNames () {
+            return this.teams.map(t => {
+                return [ t[0].name, t[1].name ].join(' & ')
+            })
         }
     },
     methods: {
@@ -141,19 +153,41 @@ export default {
             .sort((a, b) => a[0] - b[0])
             .map(a => a[1]),
         /**
+         * Generates a random number between x and y.
+         */
+        randomNumber: (min, max) => Math.floor(Math.random() * (Math.floor(max) - Math.ceil(min) + 1)) + min,
+        /**
+         * Creates an array of random numbers that represent values in an index.
+         * Each value in the array will have a difference of at least 2.
+         */
+        getSpliceIndexes (count, max, arr = []) {
+            const { randomNumber } = this
+            while (arr.length < count) {
+                const num = randomNumber(0, max)
+                const found = arr.sort().filter(n => {
+                    const x = [ num, n ].sort()
+                    return (x[1] - x[0] <= 1)
+                })
+                if (!found.length) {
+                    arr.push(num)
+                }
+            }
+            return arr.sort()
+        },
+        /**
          * Shuffles the roster, joins non-aces with aces into multiple teams.
          */
         makeTeams () {
             this.teams = []
-            const { teamsCount: { total, float }, shuffle, ace, normal } = this
+            const { teamsCount: { total, float }, shuffle, normal, getSpliceIndexes } = this
+            const ace = shuffle(this.ace)
             const roster = shuffle(normal)
-            // Inserts "aces" into the roster by splicing them into the beginning of the array
-            // starting at zero, and every other index after that.
-            // Ex: 0, 2, 4, 6...
+            // Inserts "aces" into the roster by splicing them into random spots into the roster array
+            // at least two indexes a part to avoid stacking.
             if (ace.length) {
+                let spliceIndex = getSpliceIndexes(ace.length, roster.length, [])
                 for (let i = 0; i < ace.length; i++) {
-                    let j = (i * 2)
-                    roster.splice(j, 0, ace[i])
+                    roster.splice(spliceIndex[i], 0, ace[i])
                 }
             }
             // Add even/odd pairs from the roster array index into teams.
@@ -192,12 +226,15 @@ export default {
 
 <style lang="scss">
 @import url('https://fonts.googleapis.com/css?family=Roboto:400,700&display=swap');
+$white: #feffff;
+$offwhite: #F8F7FC;
 $gray-1: #DADDE7;
 $gray-2: #F3F5F7;
 $gray-3: #424444;
 $gray-4: #898989;
-$primary: #82C256;
+$primary: #55a4a2;
 $secondary: #6F50FE;
+$secondary: #47537a;
 $accent: orangered;
 $font-sans-serif: 'Roboto', sans-serif;
 
@@ -225,6 +262,11 @@ body {
     margin: 0;
     padding: 0;
     font-family: $font-sans-serif;
+    color: $gray-3;
+}
+
+h3 {
+    margin-top: 0;
 }
 
 section {
@@ -234,49 +276,41 @@ section {
 .grid {
     display: grid;
     grid-template-rows: 1fr;
-    grid-template-columns: 25% 25% 1fr;
-    grid-template-areas: "roster team";
+    grid-template-columns: 25% 225px 1fr;
+    grid-template-areas: "input roster team";
 }
 
-.roster {
+.user-input {
+    grid-area: input;
     display: grid;
+    grid-template-columns: 1fr;
     grid-template-rows: 1fr 47px;
     grid-template-areas:
-        "content",
+        "content"
         "actions";
-    grid-area: roster;
-    height: 100vh;
-    max-height: 100vh;
-    overflow-y: auto;
+    padding: 1rem;
     background-color: $secondary;
+    background-color: $offwhite;
 
     &__content {
-        grid-area: "content";
+        grid-area: content;
+        height: calc(100% - 1rem);
     }
 
     &__actions {
-        grid-area: "actions";
+        grid-area: actions;
     }
-
-    hr {
-        margin: 1rem -1rem;
-    }
-
-    h3 {
-        color: #fff;
-    }
-
     textarea {
         display: block;
         width: 100%;
         max-width: 100%;
-        min-height: 33vh;
-        max-height: 50vh;
+        height: 100%;
+        padding: 1rem;
         overflow-y: auto;
         resize: none;
         border: none;
         font-family: $font-sans-serif;
-        font-size: 1rem;
+        font-size: 1.25rem;
         color: darken($gray-4, 20%);
 
         &:focus {
@@ -287,23 +321,53 @@ section {
     }
 }
 
-.teams {
-    grid-area: team;
+.roster {
+    display: grid;
+    grid-area: roster;
+    height: 100vh;
     max-height: 100vh;
     overflow-y: auto;
-    background-color: #F8F7FC;
+    background-color: $offwhite;
+    padding: 1rem 0;
+
+    hr {
+        margin: 1rem -1rem;
+    }
+
+    &__content {
+        border-right: 1px solid #ebebeb;
+    }
+}
+
+.teams {
+
+    &__outer {
+        grid-area: team;
+        position: relative;
+        background-color: $offwhite;
+        padding: 1rem;
+    }
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    max-height: 100vh;
+    overflow-y: auto;
 
     &__header {
+        position: absolute;
+        bottom: 1rem;
+        right: 1rem;
         background-color: $secondary;
-        color: #fff;
+        color: $white;
         padding: 1rem;
         font-weight: bold;
+        cursor: pointer;
     }
 }
 
 .roster,
 .teams {
-    padding: 1rem;
     overflow-y: auto;
     @extend %scrollbars;
 }
@@ -311,9 +375,10 @@ section {
 .badge {
     display: inline-block;
     padding: .4rem .8rem;
-    background-color: #fff;
+    background-color: $white;
+    color: lighten($gray-4, 10%);
     border-radius: 1rem;
-    color: #424444;
+    border: 1px solid darken($gray-2, 5%);
     cursor: pointer;
 
     &:not(:last-child) {
@@ -321,10 +386,11 @@ section {
     }
 
     .fad {
-        color: #666;
+        color: rgba($gray-4, 0.5);
 
         &--ace {
-            color: orangered;
+            color: lighten($accent, 20%);
+            color: $accent;
         }
     }
 }
@@ -334,7 +400,6 @@ section {
     font-weight: 400;
     text-align: center;
     white-space: nowrap;
-    // vertical-align: middle;
     width: 100%;
     user-select: none;
     border: 1px solid transparent;
@@ -355,6 +420,16 @@ section {
 
     &:focus {
         outline: none;
+    }
+
+    &--primary {
+        background-color: $primary;
+
+        &,
+        &:hover,
+        &:focus {
+            color: $white;
+        }
     }
 }
 </style>
