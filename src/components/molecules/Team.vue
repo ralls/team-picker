@@ -39,6 +39,7 @@ export default {
     border-top: none;
     padding: 1rem;
     color: #424444;
+    width: 25%;
 
     &__abbr {
         $size: 40px;
@@ -47,7 +48,7 @@ export default {
         align-items: center;
         width: $size;
         height: $size;
-        background-color: #4284FF;
+        background-color: #47537a;
         color: #fff;
         border-radius: $size;
         text-transform: uppercase;
